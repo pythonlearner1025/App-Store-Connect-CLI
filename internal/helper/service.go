@@ -40,6 +40,7 @@ type Service struct {
 }
 
 var cliRunMu sync.Mutex
+var captureIOMu sync.Mutex
 var cliExecutablePath = os.Executable
 
 func NewService(version string) *Service {
@@ -155,14 +156,46 @@ func (s *Service) requestWithSession(ctx context.Context, params SessionRequestP
 	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	response, err := session.client.DoRaw(requestCtx, asc.RawRequest{
+	request := asc.RawRequest{
 		Method:  params.Method,
 		Path:    params.Path,
 		Headers: params.Headers,
 		Body:    cloneBytes(params.Body),
+	}
+
+	var (
+		response       *asc.RawResponse
+		requestErr     error
+		captureErr     error
+		capturedStdout string
+		capturedStderr string
+	)
+
+	captureIOMu.Lock()
+	capturedStdout, capturedStderr, captureErr = captureOutput(func() {
+		response, requestErr = session.client.DoRaw(requestCtx, request)
 	})
-	if err != nil {
-		return SessionRequestResult{}, err
+	captureIOMu.Unlock()
+	if captureErr != nil {
+		return SessionRequestResult{}, fmt.Errorf("capture request output: %w", captureErr)
+	}
+	if strings.TrimSpace(capturedStderr) != "" {
+		_, _ = fmt.Fprint(os.Stderr, capturedStderr)
+	}
+	if trimmed := strings.TrimSpace(capturedStdout); trimmed != "" {
+		snippet := trimmed
+		if len(snippet) > 800 {
+			snippet = snippet[:800] + "..."
+		}
+		_, _ = fmt.Fprintf(
+			os.Stderr,
+			"ascd: suppressed unexpected stdout during session.request (%d bytes): %s\n",
+			len(capturedStdout),
+			snippet,
+		)
+	}
+	if requestErr != nil {
+		return SessionRequestResult{}, requestErr
 	}
 
 	return SessionRequestResult{
