@@ -107,6 +107,12 @@ func Run(args []string, versionInfo string) int {
 	return ExitSuccess
 }
 
+// CommandName returns the normalized command path for a CLI invocation.
+// args should not include argv[0].
+func CommandName(args []string, versionInfo string) string {
+	return getCommandName(RootCommand(versionInfo), args)
+}
+
 func shouldCancelRunContextAfterError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

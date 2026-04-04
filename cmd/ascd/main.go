@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/rudrankriyam/App-Store-Connect-CLI/cmd"
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/helper"
@@ -22,12 +23,23 @@ func versionInfoString() string {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == analyticsUploadArg {
+		os.Exit(runAnalyticsUploadSubprocess())
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == helper.CLISubprocessModeArg {
 		version := versionInfoString()
 		if override := strings.TrimSpace(os.Getenv(helper.CLIVersionEnvVar)); override != "" {
 			version = override
 		}
-		os.Exit(cmd.Run(os.Args[2:], version))
+		startedAt := time.Now()
+		exitCode := cmd.Run(os.Args[2:], version)
+		enqueueAgentDirectAnalytics(
+			cmd.CommandName(os.Args[2:], version),
+			exitCode == cmd.ExitSuccess,
+			startedAt,
+		)
+		os.Exit(exitCode)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
