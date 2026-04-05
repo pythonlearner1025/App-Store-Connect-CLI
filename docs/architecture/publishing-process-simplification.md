@@ -61,8 +61,9 @@ high-level answer is `asc publish appstore`.
 - you need a compatibility path during the migration window while moving to
   `asc publish appstore`
 
-`asc submit preflight` remains available as a deprecated compatibility wrapper
-for older scripts that still expect the legacy preflight-style output.
+`asc submit preflight` has been removed. Use `asc validate` for canonical
+readiness checks, and update any older automation or agent guidance that still
+references the legacy preflight command.
 
 ### Use `asc review ...` when
 
